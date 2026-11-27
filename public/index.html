@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deadline Countdown</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#1f6feb">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><img id="logo" src="favicon.svg" alt="" width="40" height="40"><h1 id="title">Deadline Countdown</h1></div>
+    <div class="hdr-right">
+      <div class="today" id="todayLbl"></div>
+      <div class="seg" role="radiogroup" aria-label="Theme" id="themeSeg">
+        <button type="button" role="radio" data-t="auto">Auto</button>
+        <button type="button" role="radio" data-t="light">Light</button>
+        <button type="button" role="radio" data-t="dark">Dark</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="loaderr" id="loadErr" hidden>The settings file <code>config.js</code> didn't load. Check that it sits in the same folder as this page.</div>
+  <section class="grid" id="cards" aria-label="Countdowns"></section>
+  <p class="empty" id="empty" hidden>No countdowns yet. Add some on the admin page.</p>
+
+  <footer>
+    <span id="rulesNote"></span>
+    <a href="admin.html">Admin</a>
+  </footer>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+(function () {
+  const C = window.Countdown;
+  C.initTheme(document.getElementById('themeSeg'));
+  document.getElementById('todayLbl').textContent = 'Today · ' + C.fmt(C.TODAY);
+  if (!window.COUNTDOWN_CONFIG) document.getElementById('loadErr').hidden = false;
+  const cfg = C.normalizeConfig(window.COUNTDOWN_CONFIG);
+  document.getElementById('title').textContent = cfg.title || 'Deadline Countdown';
+  document.title = cfg.title || 'Deadline Countdown';
+  C.applyLogo(cfg, document.getElementById('logo'));
+  const n = C.renderCards(document.getElementById('cards'), cfg);
+  document.getElementById('empty').hidden = n > 0 || !window.COUNTDOWN_CONFIG;
+  const off = [1, 2, 3, 4, 5, 6, 0].filter(d => cfg.nonWorkingDays.includes(d)).map(d => C.DOW[d]).join('/') || 'no days';
+  document.getElementById('rulesNote').textContent =
+    `Business days skip ${off} and ${cfg.holidays.length} holiday${cfg.holidays.length === 1 ? '' : 's'}, counting from ${cfg.countToday ? 'today' : 'tomorrow'} ${cfg.countTargetDate ? 'through' : 'up to'} the target date.`;
+})();
+</script>
+</body>
+</html>

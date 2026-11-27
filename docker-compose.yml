@@ -1,0 +1,19 @@
+services:
+  countdown:
+    build: .
+    container_name: deadline-countdown
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Required to edit from the admin page. Without it the site is read-only.
+      ADMIN_PASSWORD: "change-me"
+      # Set to 1 when nginx or another reverse proxy sits in front of this container.
+      TRUST_PROXY: "1"
+      # Optional: how long an admin sign-in lasts, in hours.
+      # SESSION_HOURS: "12"
+    volumes:
+      # On Unraid, point this at appdata, e.g. /mnt/user/appdata/deadline-countdown:/data
+      - ./data:/data
+    # On Unraid, run as nobody:users so the appdata folder stays writable:
+    # user: "99:100"

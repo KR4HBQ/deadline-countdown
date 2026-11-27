@@ -29,12 +29,20 @@ RUNNING IT
 Docker (recommended)
 ~~~~~~~~~~~~~~~~~~~~
 
-    git clone <this repo> deadline-countdown
-    cd deadline-countdown
-    # edit docker-compose.yml: set ADMIN_PASSWORD
-    docker compose up -d --build
+A ready-made image is published at ghcr.io/kr4hbq/deadline-countdown for x86-64 and ARM (Raspberry Pi, Apple silicon). It's rebuilt automatically from every change to main.
 
-Open http://<host>:8080/. Your settings are stored in ./data/config.js and survive updates. To update, git pull and run docker compose up -d --build again.
+Using the included docker-compose.yml (set ADMIN_PASSWORD in it first):
+
+    docker compose up -d
+
+Or with a single command:
+
+    docker run -d --name deadline-countdown --restart unless-stopped \
+      -p 8080:8080 -e ADMIN_PASSWORD='your-password' \
+      -v deadline-countdown-data:/data \
+      ghcr.io/kr4hbq/deadline-countdown:latest
+
+Open http://<host>:8080/. Your settings are stored in /data/config.js and survive updates. To update, run docker compose pull && docker compose up -d, or pull the image again and recreate the container.
 
   Variable         Default   What it does
   --------------   -------   ----------------------------------------------------------------------------------------------
@@ -44,22 +52,32 @@ Open http://<host>:8080/. Your settings are stored in ./data/config.js and survi
   PORT             8080      Port inside the container
   DATA_DIR         /data     Where config.js is kept. Mount it as a volume.
 
+Image tags: latest follows main. Version tags such as 1.2.0 and 1.2 appear when a v1.2.0 git tag is pushed. To build the image yourself instead, clone the repo and switch to build: . in docker-compose.yml (see the comment there).
+
 Unraid
 ~~~~~~
 
-The image isn't published to a registry yet, so build it on the server.
+In the Docker tab, click Add Container and fill in:
 
-With the Docker Compose Manager plugin: add a new stack and paste in docker-compose.yml. Point build: at the folder you cloned to, set ADMIN_PASSWORD, change the volume to /mnt/user/appdata/deadline-countdown:/data, and uncomment user: "99:100" so the appdata folder stays writable.
+  Field              Value
+  ----------------   ------------------------------------------------------------------------------------------
+  Name               deadline-countdown
+  Repository         ghcr.io/kr4hbq/deadline-countdown:latest
+  Network Type       Bridge
+  Extra Parameters   --user 99:100 (keeps the appdata folder writable; turn on Advanced View to see this field)
 
-Without the plugin, from the Unraid terminal:
+Then use Add another Path, Port, Variable, Label or Device for each of these:
 
-    cd /mnt/user/appdata && git clone <this repo> deadline-countdown-src
-    cd deadline-countdown-src && docker build -t deadline-countdown .
-    docker run -d --name deadline-countdown --restart unless-stopped \
-      --user 99:100 -p 8080:8080 \
-      -e ADMIN_PASSWORD='your-password' -e TRUST_PROXY=1 \
-      -v /mnt/user/appdata/deadline-countdown:/data \
-      deadline-countdown
+  Config Type   Name             Container side   Host side / value
+  -----------   --------------   --------------   ------------------------------------
+  Port          Web UI           8080             8080, or any free port
+  Path          Data             /data            /mnt/user/appdata/deadline-countdown
+  Variable      Admin password   ADMIN_PASSWORD   your password
+  Variable      Behind a proxy   TRUST_PROXY      1
+
+Click Apply. To update later, use Check for Updates on the Docker tab like any other container.
+
+With the Docker Compose Manager plugin you can paste docker-compose.yml into a new stack instead. Change the volume to /mnt/user/appdata/deadline-countdown:/data and uncomment user: "99:100".
 
 Behind nginx
 ~~~~~~~~~~~~

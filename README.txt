@@ -57,25 +57,34 @@ Image tags: latest follows main. Version tags such as 1.2.0 and 1.2 appear when 
 Unraid
 ~~~~~~
 
-In the Docker tab, click Add Container and fill in:
+First, create the data folder owned by nobody:users, so the container (which runs as that user) can write to it. In the Unraid terminal:
+
+    mkdir -p /mnt/user/appdata/deadline-countdown && chown 99:100 /mnt/user/appdata/deadline-countdown
+
+If you skip this, Docker creates the folder owned by root and the container stops with Could not prepare the data folder: EACCES.
+
+Then, in the Docker tab, click Add Container, switch on Advanced View (top right) and fill in:
 
   Field              Value
-  ----------------   ------------------------------------------------------------------------------------------
+  ----------------   --------------------------------------------------------------------------------------------------------------------
   Name               deadline-countdown
+  Overview           Countdown in calendar and business days, skipping weekends and company holidays.
   Repository         ghcr.io/kr4hbq/deadline-countdown:latest
+  Icon URL           https://raw.githubusercontent.com/KR4HBQ/deadline-countdown/main/public/apple-touch-icon.png
+  WebUI              http://[IP]:[PORT:8080]/ (a link template: Unraid fills in your server's IP and whichever host port you map to 8080)
+  Extra Parameters   --user 99:100 (two hyphens; runs as nobody:users so the appdata folder stays writable)
   Network Type       Bridge
-  Extra Parameters   --user 99:100 (keeps the appdata folder writable; turn on Advanced View to see this field)
 
 Then use Add another Path, Port, Variable, Label or Device for each of these:
 
   Config Type   Name             Container side   Host side / value
-  -----------   --------------   --------------   ------------------------------------
-  Port          Web UI           8080             8080, or any free port
+  -----------   --------------   --------------   -----------------------------------------------------------
+  Port          Web port         8080             8080, or any free port (this is the number nginx points at)
   Path          Data             /data            /mnt/user/appdata/deadline-countdown
   Variable      Admin password   ADMIN_PASSWORD   your password
   Variable      Behind a proxy   TRUST_PROXY      1
 
-Click Apply. To update later, use Check for Updates on the Docker tab like any other container.
+Click Apply, then open http://<unraid-ip>:<port>/, or right-click the container and choose WebUI. To update later, use Check for Updates on the Docker tab like any other container. If the container stops right after starting, its Logs say why.
 
 With the Docker Compose Manager plugin you can paste docker-compose.yml into a new stack instead. Change the volume to /mnt/user/appdata/deadline-countdown:/data and uncomment user: "99:100".
 

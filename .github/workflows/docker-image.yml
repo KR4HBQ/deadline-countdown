@@ -6,8 +6,11 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    # Docs-only changes don't need a new image
+    paths-ignore: ['**.md', '**.txt', 'LICENSE']
   pull_request:
     branches: [main]
+    paths-ignore: ['**.md', '**.txt', 'LICENSE']
   workflow_dispatch:
 
 permissions:

@@ -38,6 +38,12 @@ const STATIC = {
   '/admin': ['admin.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8'],
+  '/main.js': ['main.js', 'text/javascript; charset=utf-8'],
+  '/admin.js': ['admin.js', 'text/javascript; charset=utf-8'],
+  '/fonts/ibm-plex-sans-latin.woff2': ['fonts/ibm-plex-sans-latin.woff2', 'font/woff2'],
+  '/fonts/ibm-plex-mono-500-latin.woff2': ['fonts/ibm-plex-mono-500-latin.woff2', 'font/woff2'],
+  '/fonts/ibm-plex-mono-600-latin.woff2': ['fonts/ibm-plex-mono-600-latin.woff2', 'font/woff2'],
+  '/fonts/OFL.txt': ['fonts/OFL.txt', 'text/plain; charset=utf-8'],
   '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
   '/favicon-32.png': ['favicon-32.png', 'image/png'],
   '/favicon.ico': ['favicon-32.png', 'image/png'],
@@ -102,6 +108,10 @@ async function writeConfig(cfg) {
 // ---------- sessions and sign-in ----------
 const sessions = new Map(); // token -> expiry time
 const failures = new Map(); // ip -> { count, until }
+// Overall limit across all IPs, so guesses can't be spread over many (real or faked) addresses
+const GLOBAL_MAX_FAILURES = 20;
+const GLOBAL_WINDOW_MS = 15 * 60 * 1000;
+let globalFailures = []; // timestamps of recent wrong passwords
 
 // The visitor's IP, used for the wrong-password lockout and the log.
 // Behind a proxy, take the address the proxy itself saw, never one the visitor could have written:
@@ -146,10 +156,22 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref();
 
 // ---------- HTTP helpers ----------
+// Content-Security-Policy: the pages may only load scripts, styles, fonts and data from this site.
+// Inline scripts and styles are refused, so injected markup can't run code.
+// img-src allows data: (custom logos) and blob: (resizing an uploaded logo in the admin page).
+const CSP = [
+  "default-src 'none'", "script-src 'self'", "style-src 'self'", "img-src 'self' data: blob:",
+  "font-src 'self'", "connect-src 'self'", "manifest-src 'self'",
+  "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'"
+].join('; ');
 const SECURITY_HEADERS = {
+  'Content-Security-Policy': CSP,
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'same-origin',
-  'X-Frame-Options': 'SAMEORIGIN',
+  'X-Frame-Options': 'DENY',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
 };
 
 function send(res, status, body, type, extra) {
@@ -195,15 +217,22 @@ async function handleApi(req, res, route) {
 
   if (route === '/api/login' && req.method === 'POST') {
     if (!PASSWORD) return json(res, 403, { error: 'Editing is turned off. Set the ADMIN_PASSWORD environment variable and restart the server.' });
-    const ip = clientIP(req), f = failures.get(ip);
-    if (f && f.count >= 5 && f.until > Date.now()) {
-      const wait = Math.ceil((f.until - Date.now()) / 1000);
+    const ip = clientIP(req), f = failures.get(ip), now = Date.now();
+    if (f && f.count >= 5 && f.until > now) {
+      const wait = Math.ceil((f.until - now) / 1000);
       return json(res, 429, { error: `Too many wrong passwords. Try again in ${wait} seconds.` });
+    }
+    globalFailures = globalFailures.filter(t => t > now - GLOBAL_WINDOW_MS);
+    if (globalFailures.length >= GLOBAL_MAX_FAILURES) {
+      const wait = Math.ceil((globalFailures[0] + GLOBAL_WINDOW_MS - now) / 60000);
+      return json(res, 429, { error: `Too many wrong passwords recently. Sign-in is paused for about ${wait} minute${wait === 1 ? '' : 's'}.` });
     }
     const body = await readBody(req);
     if (!passwordMatches(body.password || '')) {
-      const n = (f && f.until > Date.now() ? f.count : 0) + 1;
-      failures.set(ip, { count: n, until: Date.now() + Math.min(15 * 60, 2 ** Math.max(0, n - 4) * 30) * 1000 });
+      const n = (f && f.until > now ? f.count : 0) + 1;
+      failures.set(ip, { count: n, until: now + Math.min(15 * 60, 2 ** Math.max(0, n - 4) * 30) * 1000 });
+      globalFailures.push(now);
+      if (globalFailures.length === GLOBAL_MAX_FAILURES) log(`${GLOBAL_MAX_FAILURES} wrong passwords in 15 minutes: pausing all sign-ins`);
       log(`Failed admin sign-in from ${ip}`);
       return json(res, 401, { error: 'That password is wrong.' });
     }

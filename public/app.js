@@ -128,7 +128,7 @@
       ? `<details class="holtw"><summary><span class="tw" aria-hidden="true"></span>${r.hit.length} holiday${r.hit.length > 1 ? 's' : ''} excluded</summary><div class="chips">${r.hit.map(([d, n]) => `<span class="chip" title="${esc(fmt(d))}">${esc(fmtShort(d))} · ${esc(n)}</span>`).join('')}</div></details>`
       : '<div>No holidays in range</div>';
     return `<article class="card${past ? ' past' : ''}">
-      <div style="display:grid;gap:2px"><h2 class="cardname">${name}</h2><div class="carddate">${esc(fmt(r.target))}${warn}</div></div>
+      <div class="titleblock"><h2 class="cardname">${name}</h2><div class="carddate">${esc(fmt(r.target))}${warn}</div></div>
       <div class="nums">
         <div class="num"><b>${Math.abs(r.cal)}</b><span>calendar days${past ? ' ago' : ''}</span></div>
         <div class="num biz"><b>${r.biz}</b><span>business days${past ? ' ago' : ''}</span></div>
@@ -168,16 +168,35 @@
     }));
   }
 
+  // Static-mode admin password. The hash sits in the public config.js, so it uses PBKDF2
+  // (deliberately slow) to make guessing it offline expensive.
+  // Stored as "pbkdf2-sha256$<iterations>$<hex>". Plain 64-hex hashes from older versions still verify.
+  const PBKDF2_ITERATIONS = 600000;
+  const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  async function pbkdf2(password, salt, iterations) {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+    return hex(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: new TextEncoder().encode(salt), iterations }, key, 256));
+  }
   async function hashPassword(password, salt) {
     if (!window.crypto || !crypto.subtle) throw new Error('no-crypto');
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + password));
-    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    return `pbkdf2-sha256$${PBKDF2_ITERATIONS}$` + await pbkdf2(password, salt, PBKDF2_ITERATIONS);
+  }
+  async function verifyPassword(password, salt, stored) {
+    if (!window.crypto || !crypto.subtle) throw new Error('no-crypto');
+    const m = /^pbkdf2-sha256\$(\d{1,7})\$([0-9a-f]{64})$/.exec(stored || '');
+    const actual = m
+      ? await pbkdf2(password, salt, +m[1])
+      : hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + password)));
+    const expected = m ? m[2] : stored;
+    let diff = actual.length ^ (expected || '').length;
+    for (let i = 0; i < actual.length; i++) diff |= actual.charCodeAt(i) ^ (expected.charCodeAt(i) || 0);
+    return diff === 0;
   }
   const newSalt = () => [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
 
   window.Countdown = {
     DAY, DOW, TODAY, toDay, toISO, fmt, esc, DEFAULT_CONFIG, normalizeConfig,
     parseHolidayText, holidaysToText, countdown, holidayMap, sortForDisplay,
-    renderCards, initTheme, hashPassword, newSalt, applyLogo, validLogo, LOGO_MAX
+    renderCards, initTheme, hashPassword, verifyPassword, newSalt, applyLogo, validLogo, LOGO_MAX
   };
 })();

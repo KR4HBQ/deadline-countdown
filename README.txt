@@ -132,22 +132,24 @@ As plain static files (no server)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Copy the public/ folder to any static web host, or open public/index.html straight from disk. The main page works the same. Since there's no server to save to, the admin page then works differently:
-  * On first visit it asks you to choose a password. That password is stored as a hash in config.js, and it only keeps casual visitors out, since anyone can read static files.
+  * On first visit it asks you to choose a password. That password is stored as a slow PBKDF2 hash (600,000 rounds) in config.js, which makes guessing it from the file expensive. It still only keeps casual visitors out, since anyone can read static files.
   * Instead of Save, it offers Download config.js. You replace public/config.js with the downloaded file by hand.
 
 FILES
 -----
 
-  Path                             What it is
-  ------------------------------   -------------------------------------------------------------------------------------------
-  server.js                        The server: serves public/, handles admin sign-in and saving
-  public/index.html                Main page
-  public/admin.html                Admin page (works in both server and static mode)
-  public/app.js                    Counting logic and card rendering, shared by both pages
-  public/style.css                 Styles, shared by both pages
-  public/config.js                 Example settings. The server copies this into DATA_DIR on first start.
-  public/favicon.svg               The icon. The PNGs and site.webmanifest are versions of it for phones and "install as app".
-  Dockerfile, docker-compose.yml   Container setup
+  Path                              What it is
+  -------------------------------   -------------------------------------------------------------------------------------------
+  server.js                         The server: serves public/, handles admin sign-in and saving
+  public/index.html                 Main page
+  public/admin.html                 Admin page (works in both server and static mode)
+  public/main.js, public/admin.js   The scripts for each page
+  public/app.js                     Counting logic and card rendering, shared by both pages
+  public/style.css                  Styles, shared by both pages
+  public/fonts/                     The IBM Plex fonts and their license (OFL.txt)
+  public/config.js                  Example settings. The server copies this into DATA_DIR on first start.
+  public/favicon.svg                The icon. The PNGs and site.webmanifest are versions of it for phones and "install as app".
+  Dockerfile, docker-compose.yml    Container setup
 
 HOW THE COUNTING WORKS
 ----------------------
@@ -162,17 +164,18 @@ Holidays are entered one per line, as 2026-12-25 Christmas or 12/25/2026, Christ
 SECURITY NOTES
 --------------
 
-  * In server mode the password is checked on the server, sign-ins use an HttpOnly, SameSite=Strict cookie, and saving requires a signed-in session. Five wrong passwords lock that IP out for a growing interval.
+  * In server mode the password is checked on the server, sign-ins use an HttpOnly, SameSite=Strict cookie, and saving requires a signed-in session. Five wrong passwords lock that IP out for a growing interval, and 20 wrong passwords in 15 minutes from any mix of IPs pause all sign-ins for the rest of that window.
+  * The server sends a strict Content-Security-Policy: pages may only load scripts, styles, fonts and data from the site itself, and inline scripts are refused. It also sends X-Frame-Options: DENY, nosniff, a same-origin referrer policy and cross-origin isolation headers.
   * With TRUST_PROXY=1, the visitor's IP comes from CF-Connecting-IP (Cloudflare), or otherwise from the last X-Forwarded-For entry (the one your proxy added), so visitors can't dodge the lockout by sending fake headers. Only turn it on when a proxy is actually in front.
   * When publishing through a Cloudflare Tunnel, consider adding a Cloudflare Access policy for the path admin*, so only you can even reach the admin page.
   * Saves are only accepted from the site's own pages (JSON with a matching Origin), and the server keeps only known fields with valid values before writing.
   * The previous config.js is kept as config.js.bak in the data folder after each save.
   * The server serves a fixed list of files and nothing else from disk.
 
-EXTERNAL REQUESTS
------------------
+PRIVACY
+-------
 
-The only one is the IBM Plex font from Google Fonts. Without it, the pages fall back to your system font. To avoid it, delete the fonts.googleapis.com <link> from both HTML files.
+The pages make no requests to any other site: no analytics, no tracking, no CDN. The IBM Plex fonts are served from the site itself (SIL Open Font License, see public/fonts/OFL.txt). Public visitors get no cookies. Their theme choice is kept only in their own browser.
 
 LICENSE
 -------

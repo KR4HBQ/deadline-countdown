@@ -4,8 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Deadline Countdown</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
@@ -39,22 +37,6 @@
 
 <script src="config.js"></script>
 <script src="app.js"></script>
-<script>
-(function () {
-  const C = window.Countdown;
-  C.initTheme(document.getElementById('themeSeg'));
-  document.getElementById('todayLbl').textContent = 'Today · ' + C.fmt(C.TODAY);
-  if (!window.COUNTDOWN_CONFIG) document.getElementById('loadErr').hidden = false;
-  const cfg = C.normalizeConfig(window.COUNTDOWN_CONFIG);
-  document.getElementById('title').textContent = cfg.title || 'Deadline Countdown';
-  document.title = cfg.title || 'Deadline Countdown';
-  C.applyLogo(cfg, document.getElementById('logo'));
-  const n = C.renderCards(document.getElementById('cards'), cfg);
-  document.getElementById('empty').hidden = n > 0 || !window.COUNTDOWN_CONFIG;
-  const off = [1, 2, 3, 4, 5, 6, 0].filter(d => cfg.nonWorkingDays.includes(d)).map(d => C.DOW[d]).join('/') || 'no days';
-  document.getElementById('rulesNote').textContent =
-    `Business days skip ${off} and ${cfg.holidays.length} holiday${cfg.holidays.length === 1 ? '' : 's'}, counting from ${cfg.countToday ? 'today' : 'tomorrow'} ${cfg.countTargetDate ? 'through' : 'up to'} the target date.`;
-})();
-</script>
+<script src="main.js"></script>
 </body>
 </html>

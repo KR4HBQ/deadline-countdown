@@ -103,12 +103,20 @@ async function writeConfig(cfg) {
 const sessions = new Map(); // token -> expiry time
 const failures = new Map(); // ip -> { count, until }
 
+// The visitor's IP, used for the wrong-password lockout and the log.
+// Behind a proxy, take the address the proxy itself saw, never one the visitor could have written:
+//  - Cloudflare (including Cloudflare Tunnel) sets CF-Connecting-IP to the real visitor address.
+//  - nginx and most other proxies append the real address as the LAST entry of X-Forwarded-For;
+//    earlier entries come from the visitor's own request and can be faked.
+const IP_RE = /^[0-9a-fA-F:.]{2,45}$/;
 function clientIP(req) {
-  if (TRUST_PROXY) {
-    const f = req.headers['x-forwarded-for'];
-    if (f) return f.split(',')[0].trim();
-  }
-  return req.socket.remoteAddress || '?';
+  const direct = req.socket.remoteAddress || '?';
+  if (!TRUST_PROXY) return direct;
+  const cf = String(req.headers['cf-connecting-ip'] || '').trim();
+  if (IP_RE.test(cf)) return cf;
+  const parts = String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean);
+  const last = parts[parts.length - 1];
+  return last && IP_RE.test(last) ? last : direct;
 }
 const isHttps = req => !!req.socket.encrypted || (TRUST_PROXY && /https/i.test(req.headers['x-forwarded-proto'] || ''));
 

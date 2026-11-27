@@ -47,7 +47,7 @@ Open `http://<host>:8080/`. Your settings are stored in `/data/config.js` and su
 | Variable | Default | What it does |
 |---|---|---|
 | `ADMIN_PASSWORD` | *(none)* | Admin password. **Without it the admin page is read-only.** |
-| `TRUST_PROXY` | off | Set to `1` behind nginx or another reverse proxy, so client IPs and https are detected correctly |
+| `TRUST_PROXY` | off | Set to `1` behind nginx, a Cloudflare Tunnel or another reverse proxy, so visitor IPs and https are detected correctly |
 | `SESSION_HOURS` | `12` | How long an admin sign-in lasts |
 | `PORT` | `8080` | Port inside the container |
 | `DATA_DIR` | `/data` | Where `config.js` is kept. Mount it as a volume. |
@@ -164,6 +164,8 @@ Holidays are entered one per line, as `2026-12-25 Christmas` or `12/25/2026, Chr
 ## Security notes
 
 - In server mode the password is checked on the server, sign-ins use an HttpOnly, SameSite=Strict cookie, and saving requires a signed-in session. Five wrong passwords lock that IP out for a growing interval.
+- With `TRUST_PROXY=1`, the visitor's IP comes from `CF-Connecting-IP` (Cloudflare), or otherwise from the last `X-Forwarded-For` entry (the one your proxy added), so visitors can't dodge the lockout by sending fake headers. Only turn it on when a proxy is actually in front.
+- When publishing through a Cloudflare Tunnel, consider adding a Cloudflare Access policy for the path `admin*`, so only you can even reach the admin page.
 - Saves are only accepted from the site's own pages (JSON with a matching `Origin`), and the server keeps only known fields with valid values before writing.
 - The previous `config.js` is kept as `config.js.bak` in the data folder after each save.
 - The server serves a fixed list of files and nothing else from disk.

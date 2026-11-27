@@ -142,3 +142,7 @@ Holidays are entered one per line, as `2026-12-25 Christmas` or `12/25/2026, Chr
 ## External requests
 
 The only one is the IBM Plex font from Google Fonts. Without it, the pages fall back to your system font. To avoid it, delete the `fonts.googleapis.com` `<link>` from both HTML files.
+
+## License
+
+MIT. See [LICENSE](LICENSE). You can use, change and share this freely, including commercially, as long as you keep the copyright notice.

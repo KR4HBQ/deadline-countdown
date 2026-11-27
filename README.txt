@@ -144,3 +144,8 @@ EXTERNAL REQUESTS
 -----------------
 
 The only one is the IBM Plex font from Google Fonts. Without it, the pages fall back to your system font. To avoid it, delete the fonts.googleapis.com <link> from both HTML files.
+
+LICENSE
+-------
+
+MIT. See LICENSE. You can use, change and share this freely, including commercially, as long as you keep the copyright notice.
